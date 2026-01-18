@@ -217,7 +217,7 @@ paru_install \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
   python-pywal python-setuptools \
   betterlockscreen tty-clock scrub \
-  zsh \
+  zsh firefox \
   rust cargo \
   python-pipx
 
