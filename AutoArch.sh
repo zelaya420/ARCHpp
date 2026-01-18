@@ -211,7 +211,7 @@ echo -e "\n${blueColour}[*] Instalando paquetes del rice (mayoría con paru)...$
 
 # Nota: zscroll NO va por AUR roto -> se instala con pipx más abajo.
 paru_install \
-  kitty rofi feh xclip ranger brightnessctl fastfetch scrot jq wmname imagemagick cmatrix \
+  kitty rofi feh thunar xclip ranger brightnessctl fastfetch scrot jq wmname imagemagick cmatrix \
   procps-ng fzf lsd bat pamixer flameshot playerctl dunst gawk zenity \
   bspwm sxhkd geany nvim polybar picom \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
