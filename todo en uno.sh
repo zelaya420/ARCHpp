@@ -226,18 +226,14 @@ echo -e "\n${greenColour}[+] Paquetes OK${endColour}"
 # =======================
 #   zscroll (pipx, evita PEP668)
 # =======================
+echo -e "\n${blueColour}[*] Instalando zscroll y zsh plugins (mayoría con paru)...${endColour}"
 
-echo -e "\n${purpleColour}[*] Instalando zscroll (manual con pipx)...${endColour}"
-export PATH="$HOME/.local/bin:$PATH"
-pipx ensurepath >/dev/null 2>&1 || true
-pipx install zscroll >/dev/null 2>&1 || pipx upgrade zscroll >/dev/null 2>&1 || true
-
-if ! command -v zscroll >/dev/null 2>&1; then
-  echo -e "${redColour}[-] zscroll no quedó en PATH. Reabre terminal o agrega ~/.local/bin al PATH.${endColour}"
-else
-  echo -e "${greenColour}[+] zscroll listo${endColour}"
-fi
-
+# Nota: zscroll NO va por AUR roto -> se instala con pipx más abajo.
+paru_install \
+  zscroll \
+  zsh-syntax-highlighting \
+  zsh-autosuggestions
+  
 # =======================
 #   EWW (build upstream)
 # =======================
