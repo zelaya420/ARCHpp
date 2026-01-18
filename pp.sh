@@ -1,4 +1,23 @@
 #!/usr/bin/env bash
+
+# ====== CLONE + CD (ANTES DE TODO) ======
+REPO_URL="https://github.com/zelaya420/bspwm"
+REPO_DIR="$HOME/bspwm"
+
+# git (mínimo para clonar)
+if ! command -v git >/dev/null 2>&1; then
+  sudo pacman -S --needed --noconfirm git
+fi
+
+# clona si no existe
+if [[ ! -d "$REPO_DIR/.git" ]]; then
+  rm -rf "$REPO_DIR"
+  git clone "$REPO_URL" "$REPO_DIR" || exit 1
+fi
+
+cd "$REPO_DIR" || exit 1
+# =======================================
+
 set -euo pipefail
 
 backup_folder="$HOME/.RiceBackup"
@@ -20,7 +39,7 @@ turquoiseColour="\e[0;36m\033[1m"
 grayColour="\e[0;37m\033[1m"
 
 # Global variables
-dir="$(pwd)"
+dir="$REPO_DIR"   # <- ahora apunta al repo clonado
 fdir="$HOME/.local/share/fonts"
 user="$(whoami)"
 
@@ -36,7 +55,7 @@ banner(){
   sleep 0.05
   echo -e "______ ____  ___  /______      ___  /___________________      ________ ___"
   sleep 0.05
-  echo -e "_  __ \`/  / / /  __/  __ \     __  __ \_  ___/__  __ \_ | /| / /_  __ \`__ \\"
+  echo -e "_  __ \`/  / / /  __/  __ \     __  __ \_  ___/__  __ \_ | /| / /_  __ \`__ \\\\"
   sleep 0.05
   echo -e "/ /_/ // /_/ // /_ / /_/ /     _  /_/ /(__  )__  /_/ /_ |/ |/ /_  / / / / /"
   sleep 0.05
@@ -72,7 +91,8 @@ ensure_paru(){
   makepkg -si --noconfirm
 }
 
-aur_install(){
+# ==== Ahora "la mayoría" con paru ====
+paru_install(){
   ensure_paru
   # shellcheck disable=SC2068
   paru -S --needed --noconfirm $@
@@ -93,27 +113,23 @@ need_cmd sudo
 echo -e "\n\n${blueColour}[*] Sincronizando/actualizando sistema...${endColour}"
 sudo pacman -Syu --noconfirm
 
-echo -e "\n\n${blueColour}[*] Installing necessary packages for the environment (Arch repos)...${endColour}"
+echo -e "\n\n${blueColour}[*] Installing necessary packages (mostly via paru)...${endColour}"
 sleep 1
 
-# Paquetes en repos oficiales (OJO: scrub NO está en repos -> va a AUR)
-pac_install \
+# La mayoría por paru (sirve para repos + AUR en una sola lista)
+paru_install \
   kitty rofi feh xclip ranger brightnessctl fastfetch scrot jq wmname imagemagick cmatrix htop \
   python-pip procps-ng fzf lsd bat pamixer flameshot playerctl bluez dunst gawk blueman zenity \
   bspwm sxhkd polybar picom \
-  xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo
+  xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
+  python-pywal \
+  betterlockscreen tty-clock zscroll-git scrub
 
 echo -e "\n${greenColour}[+] Done${endColour}"
 sleep 1
 
-echo -e "\n${purpleColour}[*] Installing pywal from Arch repos...${endColour}"
-pac_install python-pywal
-
-echo -e "\n${purpleColour}[*] Installing AUR packages (betterlockscreen, tty-clock, zscroll, scrub)...${endColour}"
-aur_install betterlockscreen tty-clock zscroll-git scrub
-
 echo -e "\n${purpleColour}[*] Installing EWW (build from upstream as en tu script)...${endColour}"
-pac_install rust cargo
+paru_install rust cargo
 mkdir -p "$HOME/tools"
 cd "$HOME/tools"
 rm -rf eww
@@ -125,7 +141,7 @@ eww --version || true
 cd "$HOME/tools"
 
 echo -e "\n${purpleColour}[*] Installing Oh My Zsh and Powerlevel10k (user + root)...${endColour}"
-pac_install zsh curl
+paru_install zsh curl
 
 # Usuario
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
