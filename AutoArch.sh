@@ -213,7 +213,7 @@ echo -e "\n${blueColour}[*] Instalando paquetes del rice (mayoría con paru)...$
 paru_install \
   kitty rofi feh xclip ranger brightnessctl fastfetch scrot jq wmname imagemagick cmatrix \
   procps-ng fzf lsd bat pamixer flameshot playerctl dunst gawk zenity \
-  bspwm sxhkd polybar picom \
+  bspwm sxhkd geany nvim polybar picom \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
   python-pywal python-setuptools \
   betterlockscreen tty-clock scrub \
