@@ -65,7 +65,6 @@ ensure_paru(){
   echo -e "\n${blueColour}[*] Instalando paru (AUR helper)...${endColour}"
   pac_install base-devel git
 
-  # makepkg NO se corre como root (ArchWiki) :contentReference[oaicite:6]{index=6}
   cd /tmp
   rm -rf paru
   git clone https://aur.archlinux.org/paru.git
@@ -97,10 +96,9 @@ sudo pacman -Syu --noconfirm
 echo -e "\n\n${blueColour}[*] Installing necessary packages for the environment (Arch repos)...${endColour}"
 sleep 1
 
-# Paquetes "equivalentes" en Arch (repos oficiales)
-# Nota: procps -> procps-ng en Arch, bat suele ser "bat", lsd está en extra :contentReference[oaicite:7]{index=7}
+# Paquetes en repos oficiales (OJO: scrub NO está en repos -> va a AUR)
 pac_install \
-  kitty rofi feh xclip ranger brightnessctl fastfetch scrot scrub jq wmname imagemagick cmatrix htop \
+  kitty rofi feh xclip ranger brightnessctl fastfetch scrot jq wmname imagemagick cmatrix htop \
   python-pip procps-ng fzf lsd bat pamixer flameshot playerctl bluez dunst gawk blueman zenity \
   bspwm sxhkd polybar picom \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo
@@ -108,18 +106,13 @@ pac_install \
 echo -e "\n${greenColour}[+] Done${endColour}"
 sleep 1
 
-echo -e "\n${purpleColour}[*] Installing pywal from Arch repos (recommended vs pip system-wide)...${endColour}"
-# pywal existe como python-pywal en Extra :contentReference[oaicite:8]{index=8}
+echo -e "\n${purpleColour}[*] Installing pywal from Arch repos...${endColour}"
 pac_install python-pywal
 
-echo -e "\n${purpleColour}[*] Installing AUR packages (betterlockscreen, tty-clock, zscroll)...${endColour}"
-# betterlockscreen está en AUR :contentReference[oaicite:9]{index=9}
-# tty-clock está en AUR :contentReference[oaicite:10]{index=10}
-# zscroll suele usarse desde AUR como zscroll-git (mencionado en foros) :contentReference[oaicite:11]{index=11}
-aur_install betterlockscreen tty-clock zscroll-git
+echo -e "\n${purpleColour}[*] Installing AUR packages (betterlockscreen, tty-clock, zscroll, scrub)...${endColour}"
+aur_install betterlockscreen tty-clock zscroll-git scrub
 
 echo -e "\n${purpleColour}[*] Installing EWW (build from upstream as en tu script)...${endColour}"
-# Eww se construye con cargo; docs oficiales: build con cargo :contentReference[oaicite:12]{index=12}
 pac_install rust cargo
 mkdir -p "$HOME/tools"
 cd "$HOME/tools"
@@ -161,7 +154,6 @@ if [[ -d "$dir/wallpapers" ]]; then
   cp -rv "$dir/wallpapers/." "$wall_dir/"
 fi
 
-# pywal
 if [[ -f "$wall_dir/archkali.png" ]]; then
   wal -nqi "$wall_dir/archkali.png" || true
   sudo wal -nqi "$wall_dir/archkali.png" || true
@@ -216,7 +208,6 @@ chmod +x "$HOME/.config/asciiart/"* 2>/dev/null || true
 chmod +x "$HOME/.config/colorscript" 2>/dev/null || true
 chmod +x "$HOME/.config/eww/profilecard/scripts/"* 2>/dev/null || true
 
-# Nota: tu script copia colorscript a /usr/bin; lo dejo pero con cuidado
 if [[ -d "$HOME/.config/colorscript" ]]; then
   sudo cp -R "$HOME/.config/colorscript" /usr/bin || true
 fi
