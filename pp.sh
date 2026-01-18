@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Arch rice installer (paru-first) + repo clone + no PEP668/pip error
 
 # ====== CLONE + CD (ANTES DE TODO) ======
 REPO_URL="https://github.com/zelaya420/bspwm"
@@ -20,6 +21,9 @@ set -euo pipefail
 
 backup_folder="$HOME/.RiceBackup"
 date="$(date +%Y%m%d-%H%M%S)"
+
+echo "Directorio de respaldo: $backup_folder"
+echo "Fecha actual: $date"
 
 # Colours
 greenColour="\e[0;32m\033[1m"
@@ -68,7 +72,7 @@ ensure_paru(){
   makepkg -si --noconfirm
 }
 
-# no prompts / no review / limpia deps de build
+# Paru no-interactivo + sin menús + limpia deps de compilación
 paru_install(){
   ensure_paru
   paru -S --needed --noconfirm --skipreview --removemake --noupgrademenu --noprovides "$@"
@@ -84,20 +88,27 @@ banner
 need_cmd pacman
 need_cmd sudo
 
-echo -e "\n${blueColour}[*] Update...${endColour}"
+echo -e "\n${blueColour}[*] Sincronizando/actualizando sistema...${endColour}"
 sudo pacman -Syu --noconfirm
 
 echo -e "\n${blueColour}[*] Instalando paquetes (mayoria via paru)...${endColour}"
 
-# >>> zscroll SIN git (zscroll), así evitas el build roto de zscroll-git
+# NOTA IMPORTANTE:
+# - NO usamos pip => evita "externally-managed-environment" (PEP 668)
+# - zscroll: intenta "zscroll" (AUR). Si no existe en tu mirror/AUR, usa fallback zscroll-git.
+ZSCROLL_PKG="zscroll"
+if ! paru -Si zscroll >/dev/null 2>&1; then
+  ZSCROLL_PKG="zscroll-git"
+fi
+
 paru_install \
   kitty rofi feh xclip ranger brightnessctl fastfetch scrot jq wmname imagemagick cmatrix htop \
-  python-pip procps-ng fzf lsd bat pamixer flameshot playerctl bluez dunst gawk blueman zenity \
+  procps-ng fzf lsd bat pamixer flameshot playerctl bluez dunst gawk blueman zenity \
   bspwm sxhkd polybar picom \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
-  python-pywal \
+  python-pip python-pywal \
   betterlockscreen tty-clock scrub \
-  zscroll
+  "$ZSCROLL_PKG"
 
 echo -e "\n${greenColour}[+] Paquetes OK${endColour}"
 
@@ -115,31 +126,37 @@ cd "$HOME/tools"
 echo -e "\n${purpleColour}[*] Installing Oh My Zsh + Powerlevel10k...${endColour}"
 paru_install zsh curl
 
+# Usuario
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
   "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" || true
 
+# Root
 sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 sudo git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
   /root/.oh-my-zsh/custom/themes/powerlevel10k || true
 
-echo -e "\n${blueColour}[*] Configurando...${endColour}"
+echo -e "\n${blueColour}[*] Configurando fonts/wallpapers/configs...${endColour}"
 
+echo -e "\n${purpleColour}[*] Fonts...${endColour}"
 mkdir -p "$fdir"
 [[ -d "$dir/fonts" ]] && cp -rv "$dir/fonts/." "$fdir/" || true
 
+echo -e "\n${purpleColour}[*] Wallpapers...${endColour}"
 wall_dir="$HOME/Wallpapers"
 mkdir -p "$wall_dir"
 [[ -d "$dir/wallpapers" ]] && cp -rv "$dir/wallpapers/." "$wall_dir/" || true
 [[ -f "$wall_dir/archkali.png" ]] && wal -nqi "$wall_dir/archkali.png" || true
 
+echo -e "\n${purpleColour}[*] Configs...${endColour}"
 mkdir -p "$HOME/.config"
 [[ -d "$dir/config" ]] && cp -rv "$dir/config/." "$HOME/.config/" || true
 
+echo -e "\n${purpleColour}[*] zshrc/p10k...${endColour}"
 [[ -f "$dir/.zshrc" ]] && cp -v "$dir/.zshrc" "$HOME/.zshrc" && sudo ln -sfv "$HOME/.zshrc" /root/.zshrc || true
 [[ -f "$dir/.p10k.zsh" ]] && cp -v "$dir/.p10k.zsh" "$HOME/.p10k.zsh" && sudo ln -sfv "$HOME/.p10k.zsh" /root/.p10k.zsh || true
 
-echo -e "\n${blueColour}[*] Backup...${endColour}"
+echo -e "\n${blueColour}[*] Backup configs...${endColour}"
 mkdir -p "$backup_folder/$date"
 for p in bspwm sxhkd polybar eww kitty bin rofi; do
   [[ -d "$HOME/.config/$p" ]] && cp -r "$HOME/.config/$p" "$backup_folder/$date/" || true
@@ -159,10 +176,15 @@ chmod +x "$HOME/.config/polybar/launch.sh" 2>/dev/null || true
 chmod +x "$HOME/.config/polybar/scripts/"* 2>/dev/null || true
 chmod +x "$HOME/.config/polybar/pywal.sh" 2>/dev/null || true
 chmod +x "$HOME/.config/bin/"* 2>/dev/null || true
+chmod +x "$HOME/.config/rofi/launcher.sh" "$HOME/.config/rofi/powermenu.sh" 2>/dev/null || true
+chmod +x "$HOME/.config/asciiart/"* 2>/dev/null || true
+chmod +x "$HOME/.config/colorscript" 2>/dev/null || true
+chmod +x "$HOME/.config/eww/profilecard/scripts/"* 2>/dev/null || true
 
+echo -e "\n${purpleColour}[*] Cleanup...${endColour}"
 rm -rf "$HOME/tools" || true
 
-echo -e "\n${greenColour}[+] Listo${endColour}"
+echo -e "\n${greenColour}[+] Listo ✅${endColour}"
 
 while true; do
   echo -en "\n${yellowColour}[?] Reiniciar ahora? ([y]/n) ${endColour}"
@@ -172,5 +194,7 @@ while true; do
     sudo reboot
   elif [[ $REPLY =~ ^[Nn]$ ]]; then
     exit 0
+  else
+    echo -e "\n${redColour}[!] Respuesta inválida${endColour}"
   fi
 done
