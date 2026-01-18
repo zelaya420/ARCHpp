@@ -68,7 +68,7 @@ ensure_paru(){
   fi
 
   echo -e "\n${blueColour}[*] Instalando paru (AUR helper)...${endColour}"
-  pac_install base-devel git
+  pac_install base-devel git python-setuptools
 
   cd /tmp
   rm -rf paru
