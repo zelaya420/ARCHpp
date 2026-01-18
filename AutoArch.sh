@@ -216,7 +216,7 @@ paru_install \
   bspwm sxhkd geany nvim polybar picom \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
   python-pywal python-setuptools \
-  betterlockscreen tty-clock scrub \
+  betterlockscreen tty-clock alacritty  scrub \
   zsh zsh-syntax-highlighting zsh-autosuggestions firefox \
   rust cargo \
   python-pipx
