@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Arch rice installer (paru-first) + repo clone + no PEP668/pip error
+set -euo pipefail
 
 # ====== CLONE + CD (ANTES DE TODO) ======
 REPO_URL="https://github.com/zelaya420/bspwm"
@@ -11,19 +11,14 @@ fi
 
 if [[ ! -d "$REPO_DIR/.git" ]]; then
   rm -rf "$REPO_DIR"
-  git clone "$REPO_URL" "$REPO_DIR" || exit 1
+  git clone "$REPO_URL" "$REPO_DIR"
 fi
 
-cd "$REPO_DIR" || exit 1
+cd "$REPO_DIR"
 # =======================================
-
-set -euo pipefail
 
 backup_folder="$HOME/.RiceBackup"
 date="$(date +%Y%m%d-%H%M%S)"
-
-echo "Directorio de respaldo: $backup_folder"
-echo "Fecha actual: $date"
 
 # Colours
 greenColour="\e[0;32m\033[1m"
@@ -40,39 +35,49 @@ dir="$REPO_DIR"
 fdir="$HOME/.local/share/fonts"
 user="$(whoami)"
 
-trap ctrl_c INT
-ctrl_c(){ echo -e "\n\n${redColour}[!] Exiting...\n${endColour}"; exit 1; }
+trap 'echo -e "\n\n${redColour}[!] Exiting...${endColour}"; exit 1' INT
 
 banner(){
   echo -e "\n${turquoiseColour}              _____            ______"
-  sleep 0.05
+  sleep 0.03
   echo -e "______ ____  ___  /______      ___  /___________________      ________ ___"
-  sleep 0.05
+  sleep 0.03
   echo -e "_  __ \`/  / / /  __/  __ \     __  __ \_  ___/__  __ \_ | /| / /_  __ \`__ \\\\"
-  sleep 0.05
+  sleep 0.03
   echo -e "/ /_/ // /_/ // /_ / /_/ /     _  /_/ /(__  )__  /_/ /_ |/ |/ /_  / / / / /"
-  sleep 0.05
-  echo -e "\__,_/ \__,_/ \__/ \____/      /_.___//____/ _  .___/____/|__/ /_/ /_/ /_/    ${endColour}${yellowColour}(${endColour}${grayColour}Byzelaya420${endColour}${purpleColour}@zelaya420${endColour}${yellowColour})${endColour}${turquoiseColour}"
-  sleep 0.05
-  echo -e "                                             /_/${endColour}"
+  sleep 0.03
+  echo -e "\__,_/ \__,_/ \__/ \____/      /_.___//____/ _  .___/____/|__/ /_/ /_/ /_/    ${endColour}${yellowColour}(${endColour}${grayColour}Byzelaya420${endColour}${purpleColour}@zelaya420${endColour}${yellowColour})${endColour}"
+  sleep 0.03
+  echo -e "${turquoiseColour}                                             /_/${endColour}"
 }
 
-need_cmd(){ command -v "$1" >/dev/null 2>&1 || { echo -e "${redColour}[-] Falta comando: $1${endColour}"; exit 1; }; }
+need_cmd(){
+  command -v "$1" >/dev/null 2>&1 || {
+    echo -e "${redColour}[-] Falta comando requerido: $1${endColour}"
+    exit 1
+  }
+}
 
-pac_install(){ sudo pacman -S --needed --noconfirm "$@"; }
+pac_install(){
+  sudo pacman -S --needed --noconfirm "$@"
+}
 
 ensure_paru(){
-  if command -v paru >/dev/null 2>&1; then return 0; fi
-  echo -e "\n${blueColour}[*] Instalando paru...${endColour}"
+  if command -v paru >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo -e "\n${blueColour}[*] Instalando paru (AUR helper)...${endColour}"
   pac_install base-devel git
+
   cd /tmp
   rm -rf paru
   git clone https://aur.archlinux.org/paru.git
   cd paru
   makepkg -si --noconfirm
+  cd "$REPO_DIR"
 }
 
-# Paru no-interactivo + sin menús + limpia deps de compilación
 paru_install(){
   ensure_paru
   paru -S --needed --noconfirm --skipreview --removemake --noupgrademenu --noprovides "$@"
@@ -80,40 +85,53 @@ paru_install(){
 
 if [[ "$user" == "root" ]]; then
   banner
-  echo -e "\n\n${redColour}[!] No ejecutes como root. Usa un usuario con sudo.${endColour}"
+  echo -e "\n${redColour}[!] No ejecutes el script como root. Usa un usuario con sudo.${endColour}"
   exit 1
 fi
 
 banner
+echo "Directorio de respaldo: $backup_folder"
+echo "Fecha actual: $date"
+
 need_cmd pacman
 need_cmd sudo
 
-echo -e "\n${blueColour}[*] Sincronizando/actualizando sistema...${endColour}"
+echo -e "\n${blueColour}[*] Actualizando sistema...${endColour}"
 sudo pacman -Syu --noconfirm
 
-echo -e "\n${blueColour}[*] Instalando paquetes (mayoria via paru)...${endColour}"
+echo -e "\n${blueColour}[*] Instalando paquetes (mayoría con paru)...${endColour}"
 
-# NOTA IMPORTANTE:
-# - NO usamos pip => evita "externally-managed-environment" (PEP 668)
-# - zscroll: intenta "zscroll" (AUR). Si no existe en tu mirror/AUR, usa fallback zscroll-git.
-ZSCROLL_PKG="zscroll"
-if ! paru -Si zscroll >/dev/null 2>&1; then
-  ZSCROLL_PKG="zscroll-git"
-fi
-
+# Nota: zscroll NO va por zscroll-git (rompe por distutils). Lo instalamos “manual” con pipx.
 paru_install \
+  base-devel \
   kitty rofi feh xclip ranger brightnessctl fastfetch scrot jq wmname imagemagick cmatrix htop \
-  procps-ng fzf lsd bat pamixer flameshot playerctl bluez dunst gawk blueman zenity \
+  procps-ng fzf lsd bat pamixer flameshot playerctl bluez bluez-utils dunst gawk blueman zenity \
   bspwm sxhkd polybar picom \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
-  python-pip python-pywal \
+  python-pywal \
   betterlockscreen tty-clock scrub \
-  "$ZSCROLL_PKG"
+  zsh curl \
+  rust cargo \
+  python-pipx
 
 echo -e "\n${greenColour}[+] Paquetes OK${endColour}"
 
-echo -e "\n${purpleColour}[*] Installing EWW (build from upstream)...${endColour}"
-paru_install rust cargo
+# ====== zscroll (INSTALACION MANUAL CORRECTA EN ARCH: pipx) ======
+# Esto evita PEP 668 y evita el AUR roto.
+echo -e "\n${purpleColour}[*] Instalando zscroll (manual con pipx, sin pip/PEP668)...${endColour}"
+export PATH="$HOME/.local/bin:$PATH"
+pipx ensurepath >/dev/null 2>&1 || true
+pipx install zscroll >/dev/null 2>&1 || pipx upgrade zscroll >/dev/null 2>&1 || true
+
+if ! command -v zscroll >/dev/null 2>&1; then
+  echo -e "${redColour}[-] zscroll no quedó en PATH. Reabre terminal o agrega ~/.local/bin al PATH.${endColour}"
+else
+  echo -e "${greenColour}[+] zscroll listo${endColour}"
+fi
+# ================================================================
+
+# ====== EWW (build upstream) ======
+echo -e "\n${purpleColour}[*] Instalando EWW (build upstream)...${endColour}"
 mkdir -p "$HOME/tools"
 cd "$HOME/tools"
 rm -rf eww
@@ -121,47 +139,51 @@ git clone https://github.com/elkowar/eww.git
 cd eww
 cargo build --release --no-default-features --features x11
 sudo install -m 0755 target/release/eww /usr/local/bin/eww
-cd "$HOME/tools"
+cd "$REPO_DIR"
+rm -rf "$HOME/tools"
+echo -e "${greenColour}[+] eww listo${endColour}"
+# ================================
 
-echo -e "\n${purpleColour}[*] Installing Oh My Zsh + Powerlevel10k...${endColour}"
-paru_install zsh curl
-
-# Usuario
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+# ====== Oh My Zsh + Powerlevel10k ======
+echo -e "\n${purpleColour}[*] Instalando Oh My Zsh + Powerlevel10k...${endColour}"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || true
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
   "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" || true
 
-# Root
-sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended || true
 sudo git clone --depth=1 https://github.com/romkatv/powerlevel10k.git \
   /root/.oh-my-zsh/custom/themes/powerlevel10k || true
+echo -e "${greenColour}[+] zsh listo${endColour}"
+# ======================================
 
 echo -e "\n${blueColour}[*] Configurando fonts/wallpapers/configs...${endColour}"
 
-echo -e "\n${purpleColour}[*] Fonts...${endColour}"
+# Fonts
 mkdir -p "$fdir"
 [[ -d "$dir/fonts" ]] && cp -rv "$dir/fonts/." "$fdir/" || true
 
-echo -e "\n${purpleColour}[*] Wallpapers...${endColour}"
+# Wallpapers + pywal
 wall_dir="$HOME/Wallpapers"
 mkdir -p "$wall_dir"
 [[ -d "$dir/wallpapers" ]] && cp -rv "$dir/wallpapers/." "$wall_dir/" || true
 [[ -f "$wall_dir/archkali.png" ]] && wal -nqi "$wall_dir/archkali.png" || true
 
-echo -e "\n${purpleColour}[*] Configs...${endColour}"
+# Configs
 mkdir -p "$HOME/.config"
 [[ -d "$dir/config" ]] && cp -rv "$dir/config/." "$HOME/.config/" || true
 
-echo -e "\n${purpleColour}[*] zshrc/p10k...${endColour}"
+# zshrc / p10k
 [[ -f "$dir/.zshrc" ]] && cp -v "$dir/.zshrc" "$HOME/.zshrc" && sudo ln -sfv "$HOME/.zshrc" /root/.zshrc || true
 [[ -f "$dir/.p10k.zsh" ]] && cp -v "$dir/.p10k.zsh" "$HOME/.p10k.zsh" && sudo ln -sfv "$HOME/.p10k.zsh" /root/.p10k.zsh || true
 
+# Backup configs (antes de tocar permisos)
 echo -e "\n${blueColour}[*] Backup configs...${endColour}"
 mkdir -p "$backup_folder/$date"
 for p in bspwm sxhkd polybar eww kitty bin rofi; do
   [[ -d "$HOME/.config/$p" ]] && cp -r "$HOME/.config/$p" "$backup_folder/$date/" || true
 done
 
+# Scripts extra
 echo -e "\n${purpleColour}[*] Scripts...${endColour}"
 if [[ -d "$dir/scripts" ]]; then
   [[ -f "$dir/scripts/whichSystem.py" ]] && sudo install -m 0755 "$dir/scripts/whichSystem.py" /usr/local/bin/whichSystem.py || true
@@ -170,6 +192,7 @@ if [[ -d "$dir/scripts" ]]; then
   touch "$HOME/.config/polybar/shapes/scripts/target"
 fi
 
+# Permisos (suaves)
 echo -e "\n${purpleColour}[*] Permisos...${endColour}"
 chmod -R +x "$HOME/.config/bspwm/" 2>/dev/null || true
 chmod +x "$HOME/.config/polybar/launch.sh" 2>/dev/null || true
@@ -181,13 +204,10 @@ chmod +x "$HOME/.config/asciiart/"* 2>/dev/null || true
 chmod +x "$HOME/.config/colorscript" 2>/dev/null || true
 chmod +x "$HOME/.config/eww/profilecard/scripts/"* 2>/dev/null || true
 
-echo -e "\n${purpleColour}[*] Cleanup...${endColour}"
-rm -rf "$HOME/tools" || true
-
 echo -e "\n${greenColour}[+] Listo ✅${endColour}"
 
 while true; do
-  echo -en "\n${yellowColour}[?] Reiniciar ahora? ([y]/n) ${endColour}"
+  echo -en "\n${yellowColour}[?] Necesitas reiniciar. ¿Reiniciar ahora? ([y]/n) ${endColour}"
   read -r REPLY
   REPLY=${REPLY:-"y"}
   if [[ $REPLY =~ ^[Yy]$ ]]; then
