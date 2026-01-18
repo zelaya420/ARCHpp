@@ -68,7 +68,7 @@ ensure_paru(){
   fi
 
   echo -e "\n${blueColour}[*] Instalando paru (AUR helper)...${endColour}"
-  pac_install base-devel git python-setuptools
+  pac_install base-devel git 
 
   cd /tmp
   rm -rf paru
@@ -108,7 +108,7 @@ paru_install \
   procps-ng fzf lsd bat pamixer flameshot playerctl bluez bluez-utils dunst gawk blueman zenity \
   bspwm sxhkd polybar picom \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
-  python-pywal \
+  python-pywal python-setuptools \
   betterlockscreen tty-clock scrub \
   zsh curl \
   rust cargo \
