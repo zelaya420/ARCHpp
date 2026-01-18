@@ -217,23 +217,13 @@ paru_install \
   xorg-xsetroot xorg-xrandr xorg-xprop xorg-xwininfo \
   python-pywal python-setuptools \
   betterlockscreen tty-clock scrub \
-  zsh firefox \
+  zsh zsh-syntax-highlighting zsh-autosuggestions firefox \
   rust cargo \
   python-pipx
 
 echo -e "\n${greenColour}[+] Paquetes OK${endColour}"
 
-# =======================
-#   zscroll (pipx, evita PEP668)
-# =======================
-echo -e "\n${blueColour}[*] Instalando zscroll y zsh plugins (mayoría con paru)...${endColour}"
 
-# Nota: zscroll NO va por AUR roto -> se instala con pipx más abajo.
-paru_install \
-  zscroll \
-  zsh-syntax-highlighting \
-  zsh-autosuggestions
-  
 # =======================
 #   EWW (build upstream)
 # =======================
