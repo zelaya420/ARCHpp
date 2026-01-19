@@ -164,10 +164,37 @@ cd ~ && rm -rf ~/tools
 echo -e "\n${blueColour}[*] Instalando herramientas de reconocimiento y enumeración...${endColour}"
 
 paru_install \
-  nmap masscan arp-scan netdiscover tcpdump wireshark-qt bind whois traceroute mtr \
-  whatweb httpx ffuf gobuster feroxbuster nikto samba enum4linux-ng impacket \
-  kerbrute ldap-utils
-
+   nmap \
+  masscan \
+  arp-scan \
+  netdiscover \
+  tcpdump \
+  wireshark-qt \
+  bind \
+  whois \
+  traceroute \
+  mtr \
+  whatweb \
+  httpx \
+  httprobe \
+  ffuf \
+  gobuster \
+  feroxbuster \
+  nikto \
+  amass \
+  subfinder \
+  assetfinder \
+  dnsrecon \
+  samba \
+  enum4linux-ng \
+  impacket \
+  kerbrute \
+  ldap-utils \
+  seclists \
+  wordlists \
+  dirbuster-wordlists \
+  wfuzz
+  
 echo -e "\n${greenColour}[+] Todo instalado correctamente ✅${endColour}"
 
 # =======================
