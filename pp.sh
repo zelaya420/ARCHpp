@@ -1,183 +1,213 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -u
 
-command -v paru >/dev/null 2>&1 || { echo "[!] paru no esta instalado"; exit 1; }
+# =========================================================
+# Instalador de herramientas para Arch Linux con paru
+# =========================================================
+# Uso:
+#   chmod +x install-pentest-tools.sh
+#   ./install-pentest-tools.sh
+#
+# Requisitos:
+#   - Arch Linux
+#   - paru instalado y funcional
+#
+# Nota:
+#   Algunos nombres "conocidos" no coinciden exactamente con el
+#   nombre real del paquete en Arch/AUR. Este script prueba
+#   alternativas y usa la primera que exista.
+# =========================================================
 
-log() { echo -e "[*] $*"; }
-warn() { echo -e "[!] $*" >&2; }
+if ! command -v paru >/dev/null 2>&1; then
+  echo "[!] paru no está instalado o no está en PATH."
+  echo "    Instálalo primero y vuelve a ejecutar este script."
+  exit 1
+fi
 
-# Instala una lista de paquetes; si alguno falla, lo registra y continua
-install_pkgs() {
-  local title="$1"; shift
-  local -a pkgs=("$@")
-  local -a failed=()
+# -----------------------------
+# Colores
+# -----------------------------
+GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+RED="\033[1;31m"
+BLUE="\033[1;34m"
+NC="\033[0m"
 
-  log "Instalando: ${title}"
-  for p in "${pkgs[@]}"; do
-    if paru -S --needed --noconfirm "$p"; then
-      : # ok
-    else
-      failed+=("$p")
-      warn "No se pudo instalar: $p"
+ok()    { echo -e "${GREEN}[+]${NC} $*"; }
+warn()  { echo -e "${YELLOW}[!]${NC} $*"; }
+err()   { echo -e "${RED}[-]${NC} $*"; }
+info()  { echo -e "${BLUE}[*]${NC} $*"; }
+
+# -----------------------------
+# Actualizar bases primero
+# -----------------------------
+info "Actualizando bases de paquetes..."
+paru -Sy --noconfirm || {
+  err "No se pudo actualizar la base de paquetes."
+  exit 1
+}
+
+# -----------------------------
+# Resolver nombres alternativos
+# -----------------------------
+resolve_pkg() {
+  local desired="$1"
+  shift
+  local candidates=("$@")
+
+  for pkg in "${candidates[@]}"; do
+    if paru -Si "$pkg" >/dev/null 2>&1; then
+      echo "$pkg"
+      return 0
     fi
   done
 
-  if ((${#failed[@]})); then
-    warn "Fallaron (${#failed[@]}): ${failed[*]}"
-    echo "${failed[*]}" >> /tmp/paru_failed_pkgs.txt || true
-  fi
+  return 1
 }
 
-log "Actualizando sistema..."
-paru -Syu --noconfirm
+install_group() {
+  local group_name="$1"
+  shift
 
-########################################
-# 0) BASE / UTILIDADES
-########################################
-install_pkgs "BASE / UTILIDADES" \
-  git curl wget unzip unrar \
-  jq python python-pip go rust \
-  openssh net-tools inetutils \
-  neovim tmux
+  info "========================================"
+  info "Instalando: $group_name"
+  info "========================================"
 
-########################################
-# 1) RECON / INFO GATHERING
-########################################
-install_pkgs "RECON" \
-  nmap masscan rustscan \
-  traceroute whois bind \
-  tcpdump wireshark-cli \
-  whatweb amass subfinder \
-  httpx-bin nuclei-bin
+  local desired pkg resolved
+  local to_install=()
+  local skipped=()
 
-########################################
-# 2) ENUMERACION (Web + AD/SMB/LDAP)
-########################################
-install_pkgs "ENUMERACION (WEB)" \
-  ffuf gobuster feroxbuster wfuzz nikto
+  for desired in "$@"; do
+    case "$desired" in
+      # Reconocimiento / enumeración
+      nmap)                 resolved=$(resolve_pkg "$desired" nmap) ;;
+      zenmap)               resolved=$(resolve_pkg "$desired" zenmap zenmap-git) ;;
+      cutycapt)             resolved=$(resolve_pkg "$desired" cutycapt cutycapt-qt5-git) ;;
+      legion)               resolved=$(resolve_pkg "$desired" legion legion+ ) ;;
 
-# SMB/LDAP/AD
-# Nota: enum4linux-ng puede no existir/romper; enum4linux + nxc/impacket suele ser mejor
-install_pkgs "ENUMERACION (SMB/LDAP/AD)" \
-  enum4linux smbclient samba \
-  rpcbind openldap \
-  responder impacket \
-  netexec smbmap \
-  bloodhound-python \
-  seclists
+      # Ataque / explotación
+      burpsuite)            resolved=$(resolve_pkg "$desired" burpsuite) ;;
+      sqlmap)               resolved=$(resolve_pkg "$desired" sqlmap sqlmap-git) ;;
+      metasploit-framework) resolved=$(resolve_pkg "$desired" metasploit-framework metasploit metasploit-git) ;;
+      hydra)                resolved=$(resolve_pkg "$desired" hydra) ;;
+      netexec)              resolved=$(resolve_pkg "$desired" netexec netexec-git) ;;
+      responder)            resolved=$(resolve_pkg "$desired" responder) ;;
+      aircrack-ng)          resolved=$(resolve_pkg "$desired" aircrack-ng) ;;
+      fern-wifi-cracker)    resolved=$(resolve_pkg "$desired" fern-wifi-cracker fern-wifi-cracker-git) ;;
+      gophish)              resolved=$(resolve_pkg "$desired" gophish) ;;
 
-########################################
-# 3) ANALISIS / EXPLOTACION / MITM
-########################################
-install_pkgs "ANALISIS / EXPLOTACION" \
-  metasploit sqlmap burpsuite \
-  john hashcat hydra medusa \
-  bettercap mitmproxy \
-  chisel socat \
-  evil-winrm
+      # Post-explotación / credenciales
+      john)                 resolved=$(resolve_pkg "$desired" john) ;;
+      ophcrack)             resolved=$(resolve_pkg "$desired" ophcrack) ;;
+      ophcrack-cli)         resolved=$(resolve_pkg "$desired" ophcrack-cli ophcrack) ;;
 
-########################################
-# 4) POST-EXPLOTACION / PRIVESC / PIVOT
-########################################
-install_pkgs "POST-EXPLOTACION" \
-  linpeas pspy gtfobins \
-  mimikatz rubeus kerbrute \
-  certipy \
-  ligolo-ng frp proxychains-ng \
-  rsync rclone zip p7zip \
-  yara volatility3
+      # Forense / análisis
+      autopsy)              resolved=$(resolve_pkg "$desired" autopsy) ;;
+      guymager)             resolved=$(resolve_pkg "$desired" guymager) ;;
+      sqlitebrowser)        resolved=$(resolve_pkg "$desired" sqlitebrowser) ;;
 
-########################################
-# 5) FORENSE (disco/artefactos/triage)
-########################################
-install_pkgs "FORENSE" \
-  sleuthkit autopsy \
-  exiftool binwalk \
-  testdisk \
-  ddrescue \
-  foremost scalpel
+      # Red / soporte
+      tcpdump)              resolved=$(resolve_pkg "$desired" tcpdump) ;;
+      netcat-traditional)   resolved=$(resolve_pkg "$desired" netcat-traditional openbsd-netcat gnu-netcat) ;;
+      wireshark)            resolved=$(resolve_pkg "$desired" wireshark-qt wireshark wireshark-cli) ;;
 
-########################################
-# 6) CRIPTO / STEGO
-########################################
-install_pkgs "CRIPTO / STEGO" \
-  openssl gnupg age \
-  hashid \
-  steghide stegseek zsteg
+      # Utilidades gráficas / sistema
+      cherrytree)           resolved=$(resolve_pkg "$desired" cherrytree) ;;
+      gparted)              resolved=$(resolve_pkg "$desired" gparted) ;;
+      rdesktop)             resolved=$(resolve_pkg "$desired" rdesktop) ;;
+      recordmydesktop)      resolved=$(resolve_pkg "$desired" recordmydesktop) ;;
+      tightvncserver)       resolved=$(resolve_pkg "$desired" tightvncserver tightvnc) ;;
+      xtightvncviewer)      resolved=$(resolve_pkg "$desired" xtightvncviewer tightvnc tigervnc-viewer) ;;
 
-########################################
-# 7) FUZZING / CRASHING (fuzz + triage)
-########################################
-install_pkgs "FUZZING / CRASHING" \
-  aflplusplus honggfuzz radamsa boofuzz \
-  gdb lldb valgrind \
-  strace ltrace \
-  checksec
+      *)
+        resolved=""
+        ;;
+    esac
 
-# Opcional: plugins de GDB (AUR a veces cambia; por eso lo dejamos separado)
-install_pkgs "GDB EXTRA (OPCIONAL)" \
-  pwndbg gef
+    if [[ -n "${resolved:-}" ]]; then
+      ok "  $desired  ->  $resolved"
+      to_install+=("$resolved")
+    else
+      warn "  No encontrado: $desired"
+      skipped+=("$desired")
+    fi
+  done
 
-########################################
-# 8) REVERSE ENGINEERING
-########################################
-install_pkgs "REVERSE ENGINEERING" \
-  ghidra radare2 cutter \
-  apktool jadx
+  # Quitar duplicados
+  if ((${#to_install[@]} > 0)); then
+    mapfile -t to_install < <(printf "%s\n" "${to_install[@]}" | awk '!seen[$0]++')
+    info "Instalando paquetes del grupo: ${to_install[*]}"
+    paru -S --needed --noconfirm "${to_install[@]}" || warn "Algunos paquetes de '$group_name' fallaron."
+  else
+    warn "No hay paquetes resolubles para el grupo '$group_name'."
+  fi
 
-########################################
-# 9) WIRELESS / RF (WiFi + SDR)
-########################################
-install_pkgs "WIRELESS (WiFi)" \
-  aircrack-ng reaver bully \
-  wifite \
-  hcxdumptool hcxtools \
-  kismet \
-  hostapd macchanger
+  if ((${#skipped[@]} > 0)); then
+    warn "Omitidos en '$group_name': ${skipped[*]}"
+  fi
 
-install_pkgs "RF / SDR" \
-  rtl-sdr gqrx \
-  gnuradio \
-  urh \
-  inspectrum
+  echo
+}
 
-########################################
-# 10) BLUETOOTH (OPCIONAL)
-########################################
-install_pkgs "BLUETOOTH (OPCIONAL)" \
-  bluez bluez-utils
+# =========================================================
+# GRUPOS
+# =========================================================
 
-echo
-echo "[✓] Listo. Categorias instaladas:"
-echo "    - Base/Utilidades"
-echo "    - Recon"
-echo "    - Enumeracion"
-echo "    - Analisis/Explotacion"
-echo "    - Post-explotacion/Pivot"
-echo "    - Forense"
-echo "    - Cripto/Stego"
-echo "    - Fuzzing/Crashing"
-echo "    - Reverse Engineering"
-echo "    - Wireless/RF"
-echo "    - Bluetooth (opcional)"
-echo
-echo "Si hubo fallos de paquetes: revisa /tmp/paru_failed_pkgs.txt"
-echo
+RECON=(
+  nmap
+  zenmap
+  cutycapt
+  legion
+)
 
-############################################################
-# BLOODHOUND CE (RECOMENDADO) - INSTALACION OPCIONAL (NO PARU)
-# - BloodHound Legacy esta deprecado; CE se despliega con Docker/CLI oficial.
-# - Te lo dejo comentado para que no rompa tu regla de 'solo paru' en lo demas.
-# Fuentes: Quickstart y docker-compose oficial. :contentReference[oaicite:2]{index=2}
-############################################################
-: '
-# Requisitos:
-# paru -S --needed --noconfirm docker docker-compose
-# sudo systemctl enable --now docker
-#
-# Instalar BloodHound CLI y desplegar CE:
-# wget https://github.com/SpecterOps/bloodhound-cli/releases/latest/download/bloodhound-cli-linux-amd64.tar.gz
-# tar -xvzf bloodhound-cli-linux-amd64.tar.gz
-# sudo install -m 0755 bloodhound-cli /usr/local/bin/bloodhound-cli
-# bloodhound-cli install
-'
+ATTACK=(
+  burpsuite
+  sqlmap
+  metasploit-framework
+  hydra
+  netexec
+  responder
+  aircrack-ng
+  fern-wifi-cracker
+  gophish
+)
+
+POST=(
+  john
+  ophcrack
+  ophcrack-cli
+)
+
+FORENSICS=(
+  autopsy
+  guymager
+  sqlitebrowser
+)
+
+NETWORK=(
+  tcpdump
+  netcat-traditional
+  wireshark
+)
+
+GUI_SYSTEM=(
+  cherrytree
+  gparted
+  rdesktop
+  recordmydesktop
+  tightvncserver
+  xtightvncviewer
+)
+
+# =========================================================
+# INSTALACIÓN
+# =========================================================
+install_group "Reconocimiento / enumeración" "${RECON[@]}"
+install_group "Ataque / explotación" "${ATTACK[@]}"
+install_group "Post-explotación / credenciales" "${POST[@]}"
+install_group "Forense / análisis" "${FORENSICS[@]}"
+install_group "Red / soporte" "${NETWORK[@]}"
+install_group "Utilidades gráficas / sistema" "${GUI_SYSTEM[@]}"
+
+ok "Proceso terminado."
+warn "Revisa la salida: algunos paquetes AUR pueden requerir intervención manual por dependencias antiguas o PKGBUILDs rotos."
