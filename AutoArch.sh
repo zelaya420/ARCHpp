@@ -26,6 +26,7 @@ fi
 
 backup_folder="$HOME/.RiceBackup"
 date_now="$(date +%Y%m%d-%H%M%S)"
+backup_target="$backup_folder/$date_now"
 
 greenColour="\e[0;32m\033[1m"
 endColour="\033[0m\e[0m"
@@ -35,8 +36,6 @@ yellowColour="\e[0;33m\033[1m"
 purpleColour="\e[0;35m\033[1m"
 turquoiseColour="\e[0;36m\033[1m"
 grayColour="\e[0;37m\033[1m"
-
-user="$(whoami)"
 
 trap 'echo -e "\n\n${redColour}[!] Exiting...${endColour}"; exit 1' INT
 
@@ -65,6 +64,22 @@ pac_install(){
   sudo pacman -S --needed --noconfirm "$@"
 }
 
+safe_chmod(){
+  local target="$1"
+  if [[ -e "$target" ]]; then
+    chmod +x "$target"
+  fi
+}
+
+safe_chmod_glob(){
+  shopt -s nullglob
+  local files=("$@")
+  if ((${#files[@]} > 0)); then
+    chmod +x "${files[@]}"
+  fi
+  shopt -u nullglob
+}
+
 ensure_paru(){
   if command -v paru >/dev/null 2>&1; then
     return 0
@@ -73,11 +88,14 @@ ensure_paru(){
   echo -e "\n${blueColour}[*] Instalando paru (AUR helper)...${endColour}"
   pac_install base-devel git
 
-  cd /tmp
-  rm -rf paru
-  git clone https://aur.archlinux.org/paru.git
-  cd paru
-  makepkg -si --noconfirm --needed
+  local tmp_dir
+  tmp_dir="$(mktemp -d)"
+  git clone https://aur.archlinux.org/paru.git "$tmp_dir/paru"
+  (
+    cd "$tmp_dir/paru"
+    makepkg -si --noconfirm --needed
+  )
+  rm -rf "$tmp_dir"
 }
 
 paru_install(){
@@ -99,6 +117,8 @@ fi
 if [[ ! -d "$REPO_DIR/.git" ]]; then
   rm -rf "$REPO_DIR"
   git clone "$REPO_URL" "$REPO_DIR"
+else
+  git -C "$REPO_DIR" pull --ff-only || true
 fi
 
 cd "$REPO_DIR"
@@ -223,6 +243,16 @@ paru_install \
 
 echo -e "\n${greenColour}[+] Paquetes OK${endColour}"
 
+# =======================
+# BACKUP CONFIGS
+# =======================
+
+echo -e "\n${blueColour}[*] Backup configs...${endColour}"
+mkdir -p "$backup_target"
+for p in bspwm sxhkd polybar eww kitty bin rofi; do
+  [[ -d "$HOME/.config/$p" ]] && cp -r "$HOME/.config/$p" "$backup_target/" || true
+done
+
 
 # =======================
 #   EWW (build upstream)
@@ -283,16 +313,6 @@ mkdir -p "$HOME/.config"
 [[ -f "$dir/.p10k.zsh" ]] && cp -v "$dir/.p10k.zsh" "$HOME/.p10k.zsh" && sudo ln -sfv "$HOME/.p10k.zsh" /root/.p10k.zsh || true
 
 # =======================
-# BACKUP CONFIGS
-# =======================
-
-echo -e "\n${blueColour}[*] Backup configs...${endColour}"
-mkdir -p "$backup_folder/$date_now"
-for p in bspwm sxhkd polybar eww kitty bin rofi; do
-  [[ -d "$HOME/.config/$p" ]] && cp -r "$HOME/.config/$p" "$backup_folder/$date_now/" || true
-done
-
-# =======================
 # SCRIPTS EXTRA
 # =======================
 
@@ -310,14 +330,15 @@ fi
 
 echo -e "\n${purpleColour}[*] Permisos...${endColour}"
 chmod -R +x "$HOME/.config/bspwm/" 2>/dev/null || true
-chmod +x "$HOME/.config/polybar/launch.sh" 2>/dev/null || true
-chmod +x "$HOME/.config/polybar/scripts/"* 2>/dev/null || true
-chmod +x "$HOME/.config/polybar/pywal.sh" 2>/dev/null || true
-chmod +x "$HOME/.config/bin/"* 2>/dev/null || true
-chmod +x "$HOME/.config/rofi/launcher.sh" "$HOME/.config/rofi/powermenu.sh" 2>/dev/null || true
-chmod +x "$HOME/.config/asciiart/"* 2>/dev/null || true
-chmod +x "$HOME/.config/colorscript" 2>/dev/null || true
-chmod +x "$HOME/.config/eww/profilecard/scripts/"* 2>/dev/null || true
+safe_chmod "$HOME/.config/polybar/launch.sh"
+safe_chmod_glob "$HOME/.config/polybar/scripts/"*
+safe_chmod "$HOME/.config/polybar/pywal.sh"
+safe_chmod_glob "$HOME/.config/bin/"*
+safe_chmod "$HOME/.config/rofi/launcher.sh"
+safe_chmod "$HOME/.config/rofi/powermenu.sh"
+safe_chmod_glob "$HOME/.config/asciiart/"*
+safe_chmod "$HOME/.config/colorscript"
+safe_chmod_glob "$HOME/.config/eww/profilecard/scripts/"*
 
 echo -e "\n${greenColour}[+] Listo ✅${endColour}"
 
